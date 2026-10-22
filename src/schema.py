@@ -1,94 +1,116 @@
 """
 This module provides pydantic schema used to craft and validate iNaturalist API queries.
+
+Only parameters documented for GET /v1/observations are included. The API silently ignores parameters it does not
+recognize, so an undocumented field can look valid while filtering nothing. extra="forbid" makes the LLM's output fail
+validation (and get retried) if it invents a field.
 """
 from datetime import date
-from typing import Optional, List, Union, Literal
+from typing import List, Literal, Optional
 
-from pydantic import Field, BaseModel, EmailStr, field_validator
-from pydantic_core import PydanticCustomError
+from pydantic import BaseModel, ConfigDict, Field
+
+License = Literal["cc-by", "cc-by-nc", "cc-by-nd", "cc-by-sa", "cc-by-nc-nd", "cc-by-nc-sa", "cc0"]
+
 
 class ObservationsQueryParams(BaseModel):
     """
-    This schema models request parameters to the iNaturalist observations API at https://www.inaturalist.org/observations.json
+    Request parameters for the iNaturalist v1 observations search API (GET /v1/observations).
     """
-    q: Optional[str] = Field(None, description="Search query string. Best used alone for free-text searching.")
-    page: Optional[int] = Field(None, ge=1, description="Page number (1-based)")
-    per_page: Optional[int] = Field(default=200, ge=1, le=200, description="Number of results per page (1-200)")
-    
-    order_by: Optional[Literal["observed_on", "date_observed", "date_added"]] = Field(
-        None, description="Field to sort by"
-    )
-    order: Optional[Literal["asc", "desc"]] = Field(
-        None, description="Sort order: ascending or descending"
-    )
-    
-    license: Optional[Literal[
-        "none", "any", "CC-BY", "CC-BY-NC", "CC-BY-SA", "CC-BY-ND", 
-        "CC-BY-NC-SA", "CC-BY-NC-ND"
-    ]] = Field(None, description="Filter by license applied to the observation")
-    
-    photo_license: Optional[Literal[
-        "none", "any", "CC-BY", "CC-BY-NC", "CC-BY-SA", "CC-BY-ND", 
-        "CC-BY-NC-SA", "CC-BY-NC-ND"
-    ]] = Field(None, description="Filter by license applied to associated photos")
-
-    taxon_id: Optional[int] = Field(None, description="iNat taxon ID. Includes descendant taxa.")
-    taxon_name: Optional[str] = Field(None, description="iNat taxon name. Includes descendant taxa. May match multiple taxa.")
-    
-    iconic_taxa: Optional[List[Literal[
-        "Plantae", "Animalia", "Mollusca", "Reptilia", "Aves", "Amphibia", 
-        "Actinopterygii", "Mammalia", "Insecta", "Arachnida", "Fungi", 
-        "Protozoa", "Chromista", "unknown"
-    ]]] = Field(None, description="Filter by one or more iconic taxa")
-
-    has: Optional[List[Literal["photos", "geo"]]] = Field(
-        None, description="Boolean selectors. E.g., 'photos' for observations with photos, 'geo' for georeferenced observations."
-    )
-
-    quality_grade: Optional[Literal["casual", "research"]] = Field(
-        None, description="Filter by observation quality grade"
-    )
-    out_of_range: Optional[bool] = Field(
-        None, description="Whether observation is considered out of range for the taxon by iNat"
-    )
-
-    on: Optional[str] = Field(
-        None, description="Filter by date string (yyyy-mm-dd, yyyy-mm, or yyyy)"
-    )
-    year: Optional[int] = Field(None, description="Filter by year (e.g., 2022)")
-    month: Optional[int] = Field(None, ge=1, le=12, description="Filter by month (1–12)")
-    day: Optional[int] = Field(None, ge=1, le=31, description="Filter by day of the month (1–31)")
-
-    d1: Optional[date] = Field(None, description="Start of date range (yyyy-mm-dd)")
-    d2: Optional[date] = Field(None, description="End of date range (yyyy-mm-dd)")
-    m1: Optional[int] = Field(None, ge=1, le=12, description="Start of month range (1–12)")
-    m2: Optional[int] = Field(None, ge=1, le=12, description="End of month range (1–12)")
-    h1: Optional[int] = Field(None, ge=0, le=23, description="Start of hour range (0–23)")
-    h2: Optional[int] = Field(None, ge=0, le=23, description="End of hour range (0–23)")
-
-    swlat: Optional[float] = Field(None, ge=-90, le=90, description="Southwest latitude of bounding box (-90 to 90)")
-    swlng: Optional[float] = Field(None, ge=-180, le=180, description="Southwest longitude of bounding box (-180 to 180)")
-    nelat: Optional[float] = Field(None, ge=-90, le=90, description="Northeast latitude of bounding box (-90 to 90)")
-    nelng: Optional[float] = Field(None, ge=-180, le=180, description="Northeast longitude of bounding box (-180 to 180)")
-
-    list_id: Optional[int] = Field(None, description="iNat list ID. Limits results to taxa on specified list (max 2000 taxa)")
-    updated_since: Optional[date] = Field(None, description="Filter by observations updated since a given ISO8601 datetime")
-
-    extra: Optional[List[Literal["fields", "identifications", "projects", "observation_photos"]]] = Field(
-        None, description="Request additional information such as observation fields, project memberships, etc."
-    )
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
             "example": {
-                "taxon_id": 42048,
-                "iconic_taxa": ["Mammalia"],
-                "has": ["photos", "geo"],
+                "taxon_name": "Rattus rattus",
+                "photos": True,
                 "quality_grade": "research",
-                "page": 1,
-                "per_page": 50
+                "per_page": 50,
             }
-        }
+        },
+    )
+
+    # Free text and taxon
+    q: Optional[str] = Field(
+        None, description="Free-text search across observation properties. Use only when no other field fits."
+    )
+    taxon_name: Optional[str] = Field(
+        None,
+        description="A scientific or common taxon name. Includes descendant taxa. A common name can match several taxa.",
+    )
+    taxon_id: Optional[int] = Field(
+        None,
+        description="iNaturalist taxon ID. Includes descendant taxa. Only set this if the request states the ID. "
+                    "Never guess an ID, use taxon_name instead.",
+    )
+    without_taxon_id: Optional[int] = Field(
+        None, description="Exclude observations of this taxon ID and its descendants. Only set if the request states the ID."
+    )
+    iconic_taxa: Optional[List[Literal[
+        "Plantae", "Animalia", "Mollusca", "Reptilia", "Aves", "Amphibia", "Actinopterygii", "Mammalia",
+        "Insecta", "Arachnida", "Fungi", "Protozoa", "Chromista", "unknown"
+    ]]] = Field(None, description="Broad taxon groups. Observations of any of the listed groups match.")
+    rank: Optional[str] = Field(
+        None, description="Only observations whose identified taxon has this rank.", examples=["species", "genus", "family"]
+    )
+
+    # Observer, place, project
+    user_login: Optional[str] = Field(None, description="Only observations by the user with this login name.")
+    place_id: Optional[int] = Field(
+        None,
+        description="iNaturalist place ID. Only set this if the request states the ID. Never guess an ID. "
+                    "For named regions, use a bounding box or lat/lng/radius if coordinates are known.",
+    )
+    project_id: Optional[str] = Field(
+        None, description="Project ID or slug. Only set if the request states it."
+    )
+
+    # Location
+    lat: Optional[float] = Field(None, ge=-90, le=90, description="Center latitude. Use together with lng and radius.")
+    lng: Optional[float] = Field(None, ge=-180, le=180, description="Center longitude. Use together with lat and radius.")
+    radius: Optional[float] = Field(None, gt=0, description="Radius in kilometers around lat/lng.")
+    nelat: Optional[float] = Field(None, ge=-90, le=90, description="Bounding box northeast latitude.")
+    nelng: Optional[float] = Field(None, ge=-180, le=180, description="Bounding box northeast longitude.")
+    swlat: Optional[float] = Field(None, ge=-90, le=90, description="Bounding box southwest latitude.")
+    swlng: Optional[float] = Field(None, ge=-180, le=180, description="Bounding box southwest longitude.")
+
+    # Time
+    observed_on: Optional[date] = Field(None, description="Observed on exactly this date (yyyy-mm-dd).")
+    d1: Optional[date] = Field(None, description="Observed on or after this date (yyyy-mm-dd).")
+    d2: Optional[date] = Field(None, description="Observed on or before this date (yyyy-mm-dd).")
+    year: Optional[int] = Field(None, ge=1, description="Observed in this year, e.g. 2022.")
+    month: Optional[int] = Field(None, ge=1, le=12, description="Observed in this month of any year (1-12).")
+    day: Optional[int] = Field(None, ge=1, le=31, description="Observed on this day of the month (1-31).")
+    hour: Optional[int] = Field(None, ge=0, le=23, description="Observed within this hour of the day (0-23).")
+    updated_since: Optional[date] = Field(None, description="Updated on or after this date (yyyy-mm-dd).")
+
+    # Evidence and status
+    photos: Optional[bool] = Field(None, description="True for observations with photos.")
+    sounds: Optional[bool] = Field(None, description="True for observations with sounds.")
+    geo: Optional[bool] = Field(None, description="True for observations that have coordinates.")
+    captive: Optional[bool] = Field(None, description="True for captive or cultivated observations.")
+    native: Optional[bool] = Field(None, description="True for taxa that are native to the observation location.")
+    introduced: Optional[bool] = Field(None, description="True for taxa that are introduced at the observation location.")
+    out_of_range: Optional[bool] = Field(None, description="True for taxa outside their known range.")
+    verifiable: Optional[bool] = Field(
+        None, description="True for observations with quality grade needs_id or research."
+    )
+    quality_grade: Optional[Literal["needs_id", "casual", "research"]] = Field(
+        None,
+        description="Quality grade. research means community-verified, needs_id means awaiting identification, "
+                    "casual means missing evidence or flagged. Leave unset unless the request asks for it.",
+    )
+    geoprivacy: Optional[Literal["obscured", "obscured_private", "open", "private"]] = Field(
+        None, description="Location privacy setting chosen by the observer."
+    )
+    license: Optional[License] = Field(None, description="License of the observation.")
+    photo_license: Optional[License] = Field(None, description="License of at least one photo.")
+
+    # Paging
+    per_page: Optional[int] = Field(
+        default=200, ge=1, le=200,
+        description="Number of results to return (1-200). Leave at the default unless the user asks for fewer.",
+    )
+    order: Optional[Literal["asc", "desc"]] = Field(None, description="Sort order (sorted by creation time).")
 
 
 class LLMGeneration(BaseModel):
@@ -97,7 +119,3 @@ class LLMGeneration(BaseModel):
         examples=["Rattus Rattus observations in iNaturalist",
                   "Galax Urceolata iNaturalist observations since 2015"])
     search_parameters: ObservationsQueryParams = Field()
-
-
-
-
