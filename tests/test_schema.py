@@ -129,3 +129,14 @@ def test_llm_generation_requires_artifact_description():
 def test_llm_generation_rejects_invented_search_field():
     with pytest.raises(ValidationError):
         LLMGeneration(artifact_description="x", search_parameters={"m1": 6})
+
+
+@pytest.mark.parametrize("field", ["created_at", "observed_on", "id"])
+def test_order_by_accepts_verified_sort_fields(field):
+    assert make(order_by=field, order="asc").order_by == field
+
+
+@pytest.mark.parametrize("field", ["date_observed", "date_added", "votes"])
+def test_order_by_rejects_unverified_sort_fields(field):
+    with pytest.raises(ValidationError):
+        make(order_by=field)

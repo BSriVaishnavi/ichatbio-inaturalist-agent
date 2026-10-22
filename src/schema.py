@@ -105,12 +105,20 @@ class ObservationsQueryParams(BaseModel):
     license: Optional[License] = Field(None, description="License of the observation.")
     photo_license: Optional[License] = Field(None, description="License of at least one photo.")
 
-    # Paging
+    # Paging and ordering
     per_page: Optional[int] = Field(
         default=200, ge=1, le=200,
         description="Number of results to return (1-200). Leave at the default unless the user asks for fewer.",
     )
-    order: Optional[Literal["asc", "desc"]] = Field(None, description="Sort order (sorted by creation time).")
+    order_by: Optional[Literal["created_at", "observed_on", "id"]] = Field(
+        None,
+        description="Field to sort by. created_at is when the observation was uploaded (the default), observed_on is "
+                    "when the organism was observed, id sorts by observation ID. Only set when the request asks for "
+                    "an ordering, such as the most recent or oldest observations.",
+    )
+    order: Optional[Literal["asc", "desc"]] = Field(
+        None, description="Sort direction for order_by. The API default is desc, so newest first."
+    )
 
 
 class LLMGeneration(BaseModel):
