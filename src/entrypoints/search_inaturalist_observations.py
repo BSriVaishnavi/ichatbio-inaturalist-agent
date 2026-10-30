@@ -36,7 +36,7 @@ DO NOT guess.
 
 If a specific field is not implied or mentioned, leave it out.
 
-Dates must be in yyyy-mm-dd, yyyy-mm, or yyyy format where applicable.
+Dates must be in yyyy-mm-dd format. To filter by a whole year or a month, use the year or month fields instead of a partial date.
 
 Boolean values must be expressed as true or false.
 
@@ -44,7 +44,7 @@ Use enums and constrained values exactly as specified in the schema:
 
 license, photo_license, order_by, quality_grade, etc. must be from their allowed list.
 
-If multiple values are specified for fields like iconic_taxa or has, include them as lists.
+If multiple values are specified for iconic_taxa, include them as a list.
 """
 
 

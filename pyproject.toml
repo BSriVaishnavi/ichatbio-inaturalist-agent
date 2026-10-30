@@ -12,9 +12,17 @@ dependencies = [
     "uvicorn>=0.34.3",
     "httpx>=0.28.1",
     "python-dotenv>=1.2.1",
+    "langchain==1.4.6",
+    "langchain-openai==1.7.2",
+    "langgraph>=1.2.18",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "tests"]
 log_cli = true
 log_cli_level = "INFO"
+
+[dependency-groups]
+dev = [
+    "pytest-asyncio>=1.0.0",
+]

@@ -140,3 +140,11 @@ def test_order_by_accepts_verified_sort_fields(field):
 def test_order_by_rejects_unverified_sort_fields(field):
     with pytest.raises(ValidationError):
         make(order_by=field)
+
+def test_list_id_is_accepted_as_an_integer():
+    assert make(list_id=123).list_id == 123
+
+
+def test_list_id_rejects_non_integer():
+    with pytest.raises(ValidationError):
+        make(list_id="my watchlist")

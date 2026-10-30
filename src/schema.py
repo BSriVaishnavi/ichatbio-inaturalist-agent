@@ -64,6 +64,13 @@ class ObservationsQueryParams(BaseModel):
         None, description="Project ID or slug. Only set if the request states it."
     )
 
+    list_id: Optional[int] = Field(
+        None,
+                description="iNaturalist list ID. Only observations of taxa that are on this list, from anywhere in the world. "
+                    "This filters by taxon, not by location. Only set this if the request states the ID. "
+                    "Never guess an ID.",
+    )
+
     # Location
     lat: Optional[float] = Field(None, ge=-90, le=90, description="Center latitude. Use together with lng and radius.")
     lng: Optional[float] = Field(None, ge=-180, le=180, description="Center longitude. Use together with lat and radius.")
