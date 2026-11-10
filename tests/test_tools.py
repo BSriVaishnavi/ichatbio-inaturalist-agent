@@ -2,6 +2,7 @@
 Checks that the tools, schema, entrypoint helpers and util work together. No LLM key or network is needed: the LLM call
 and the HTTP call are replaced with fakes.
 """
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -9,10 +10,10 @@ from ichatbio.agent_response import ArtifactResponse, DirectResponse, ResponseCo
 from ichatbio.test_utils import InMemoryResponseChannel
 
 from schema import ObservationsQueryParams
-from tools import count_occurrence_records as count_mod
 from tools import find_media_records as media_mod
 from tools import find_occurrence_records as find_mod
 from tools.context import current_context
+from tools.util import upsize_photo_urls
 
 RUNTIME = SimpleNamespace(state={"messages": []})
 
@@ -49,14 +50,14 @@ def kinds(messages):
     return [type(m).__name__ for m in messages]
 
 
-@pytest.mark.parametrize("mod", [find_mod, count_mod, media_mod])
+@pytest.mark.parametrize("mod", [find_mod, media_mod])
 def test_system_prompt_builds_and_contains_examples(mod):
     prompt = mod.get_system_prompt()
     assert "# Examples" in prompt
     assert "Example 0" in prompt
 
 
-@pytest.mark.parametrize("mod", [find_mod, count_mod, media_mod])
+@pytest.mark.parametrize("mod", [find_mod, media_mod])
 def test_tool_has_name_and_description(mod):
     tool = getattr(mod, mod.__name__.split(".")[-1])
     assert tool.name == mod.__name__.split(".")[-1]
@@ -130,24 +131,6 @@ async def test_find_survives_network_exception(context, messages, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_count_uses_species_counts_endpoint(context, messages, monkeypatch):
-    seen = []
-    params = ObservationsQueryParams(iconic_taxa=["Aves"], year=2020, per_page=10)
-    monkeypatch.setattr(count_mod, "generate_search_parameters", fake_generate(params))
-    monkeypatch.setattr(
-        count_mod, "query_inaturalist_observations", fake_query([{"count": 5, "taxon": {}}], 300, seen)
-    )
-
-    await count_mod.count_occurrence_records.coroutine(request="top birds", runtime=RUNTIME)
-
-    assert seen[0].startswith("https://api.inaturalist.org/v1/observations/species_counts?")
-    assert "iconic_taxa%5B%5D=Aves" in seen[0]
-    assert "year=2020" in seen[0]
-    artifact = next(m for m in messages if isinstance(m, ArtifactResponse))
-    assert artifact.metadata["total_species_count"] == 300
-
-
-@pytest.mark.asyncio
 async def test_media_forces_photos_true(context, messages, monkeypatch):
     seen = []
     monkeypatch.setattr(
@@ -186,6 +169,76 @@ async def test_capture_restores_channel_after_error(context, monkeypatch):
         await find_mod.find_occurrence_records.coroutine(request="a", runtime=RUNTIME)
 
     assert context._channel.submit == original
+
+
+def test_upsize_photo_urls_changes_square_to_original():
+    data = {
+        "results": [
+            {
+                "photos": [
+                    {"url": "https://example.org/photos/1/square.jpg"},
+                    {"url": "https://example.org/photos/2/square.png"},
+                ]
+            }
+        ]
+    }
+
+    changed = upsize_photo_urls(data)
+
+    assert changed == 2
+    assert data["results"][0]["photos"][0]["url"] == "https://example.org/photos/1/original.jpg"
+    assert data["results"][0]["photos"][1]["url"] == "https://example.org/photos/2/original.png"
+
+
+def test_upsize_photo_urls_leaves_other_urls_alone():
+    data = {
+        "results": [
+            {
+                "url": "https://www.inaturalist.org/observations/1",
+                "photos": [{"url": "https://example.org/photos/1/original.jpg"}],
+                "sounds": [{"file_url": "https://example.org/sounds/1.mp3"}],
+            }
+        ]
+    }
+    before = json.dumps(data)
+
+    assert upsize_photo_urls(data) == 0
+    assert json.dumps(data) == before
+
+
+def test_upsize_photo_urls_handles_data_without_photos():
+    assert upsize_photo_urls({"total_results": 0, "results": []}) == 0
+
+
+@pytest.mark.asyncio
+async def test_find_artifact_has_full_size_photo_urls(context, messages, monkeypatch):
+    seen = []
+    results = [{"id": 1, "photos": [{"url": "https://example.org/photos/1/square.jpg"}]}]
+    params = ObservationsQueryParams(taxon_name="Rattus rattus", photos=True)
+    monkeypatch.setattr(find_mod, "generate_search_parameters", fake_generate(params))
+    monkeypatch.setattr(find_mod, "query_inaturalist_observations", fake_query(results, 1, seen))
+
+    await find_mod.find_occurrence_records.coroutine(request="rats", runtime=RUNTIME)
+
+    artifact = next(m for m in messages if isinstance(m, ArtifactResponse))
+    data = json.loads(artifact.content)
+    assert data["results"][0]["photos"][0]["url"] == "https://example.org/photos/1/original.jpg"
+    assert artifact.metadata["source_url"] == seen[0]
+
+
+@pytest.mark.asyncio
+async def test_media_artifact_has_full_size_photo_urls(context, messages, monkeypatch):
+    seen = []
+    results = [{"id": 1, "photos": [{"url": "https://example.org/photos/1/square.jpg"}]}]
+    params = ObservationsQueryParams(taxon_name="Rattus rattus")
+    monkeypatch.setattr(media_mod, "generate_search_parameters", fake_generate(params))
+    monkeypatch.setattr(media_mod, "query_inaturalist_observations", fake_query(results, 1, seen))
+
+    await media_mod.find_media_records.coroutine(request="photos of rats", runtime=RUNTIME)
+
+    artifact = next(m for m in messages if isinstance(m, ArtifactResponse))
+    data = json.loads(artifact.content)
+    assert data["results"][0]["photos"][0]["url"] == "https://example.org/photos/1/original.jpg"
 
 
 def test_llm_response_model_rejects_unknown_parameter():

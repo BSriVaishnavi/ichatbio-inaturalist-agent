@@ -10,7 +10,7 @@
 * To get only observations that have photos, set "photos" to true. To get only observations without photos, set it to false. To get observations of any kind, leave it unset.
 * "list_id" matches observations of taxa on a list, from anywhere in the world. It does not limit observations to a place.
 * There are no parameters for image quality, image content, observer skill or how common a species is. Do not choose search parameters that only partially fulfill the user's request. Instead, you should abort (don't set any search parameters) and explain why.
-* Only use the "per_page" field if the user explicitly asks to limit the amount of information retrieved. For example, if the user wants to know which species have the most observations, it's ok to retrieve the full list of species counts.
+* Only use the "per_page" field if the user explicitly asks to limit the amount of information retrieved, for example "show me 5 observations".
 * At most 200 observations are returned per request. "total_results" in the response is the number of matching observations, which can be much larger.
-* Photo URLs are in the artifact data at "results[].photos[].url". The size is part of the URL, for example "square". Replace only that word with "original", "large", "medium", "small" or "thumb" to get a different size.
+* Photo URLs are in the artifact data at "results[].photos[].url". They are changed automatically to point to the original, full-size image, so there is nothing to set for that.
 * The API allows roughly 60 requests per minute. Do not send several searches when one will answer the request.

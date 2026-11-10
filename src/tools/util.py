@@ -1,5 +1,6 @@
 import functools
 import os
+import re
 import types
 from contextlib import contextmanager
 from typing import Optional, Self, Type, TypeVar
@@ -85,6 +86,36 @@ def capture_messages(context: ResponseContext):
     finally:
         # Restore the original method even if the tool raised an error
         channel.submit = old_submit
+
+
+# iNaturalist returns photo URLs for its smallest image size ("square", 75 px), which look tiny in the chat. The tools
+# change them to point to a larger size. "original" is the full resolution file (change this to "large" for a lighter
+# 1024 px image).
+PHOTO_SIZE = "original"
+
+_PHOTO_URL = re.compile(r"/(?:square|thumb|small|medium|large|original)\.(\w+)((?:\?.*)?)$", re.IGNORECASE)
+
+
+def upsize_photo_urls(data, size: str = PHOTO_SIZE) -> int:
+    """
+    Walks through iNaturalist response data and changes the size in every photo URL, for example .../square.jpg becomes
+    .../original.jpg. Only values under a "url" key that end in a photo size name are changed. The data is changed in
+    place. Returns the number of URLs that were rewritten.
+    """
+    changed = 0
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if key == "url" and isinstance(value, str):
+                new_value = _PHOTO_URL.sub(rf"/{size}.\1\2", value)
+                if new_value != value:
+                    data[key] = new_value
+                    changed += 1
+            else:
+                changed += upsize_photo_urls(value, size)
+    elif isinstance(data, list):
+        for item in data:
+            changed += upsize_photo_urls(item, size)
+    return changed
 
 
 system_prompt_template = """

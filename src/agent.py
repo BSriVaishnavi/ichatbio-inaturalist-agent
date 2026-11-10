@@ -17,7 +17,6 @@ from pydantic import BaseModel
 from starlette.applications import Starlette
 
 from tools.context import current_context
-from tools.count_occurrence_records import count_occurrence_records
 from tools.find_media_records import find_media_records
 from tools.find_occurrence_records import find_occurrence_records
 from util import get_llm_credentials, set_llm_credentials
@@ -34,7 +33,7 @@ class INaturalistAgent(IChatBioAgent):
             entrypoints=[
                 AgentEntrypoint(
                     id="search_inaturalist_observations",
-                    description="Retrieves data from iNaturalist, including observations and associated photos and sounds. Can also provide species counts for the observations that match a search.",
+                    description="Retrieves data from iNaturalist, including observations and associated photos and sounds.",
                 ),
             ],
         )
@@ -89,7 +88,6 @@ class INaturalistAgent(IChatBioAgent):
             ),
             tools=[
                 find_occurrence_records,
-                count_occurrence_records,
                 find_media_records,
                 abort,
                 finish

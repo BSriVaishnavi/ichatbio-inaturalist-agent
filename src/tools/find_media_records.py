@@ -1,4 +1,5 @@
 import functools
+import json
 from importlib.resources import files
 
 from ichatbio.agent_response import IChatBioAgentProcess
@@ -8,10 +9,12 @@ from entrypoints.search_inaturalist_observations import build_query_url, query_i
 from schema import ObservationsQueryParams
 from tools.context import current_context
 from tools.util import (
+    PHOTO_SIZE,
     context_tool,
     generate_search_parameters,
     make_llm_response_model,
     make_system_prompt,
+    upsize_photo_urls,
 )
 from util import AIGenerationException
 
@@ -19,7 +22,8 @@ API_URL = "https://api.inaturalist.org/v1/observations"
 
 description = """\
 Searches for iNaturalist observations that have photos or sounds, for requests about images or recordings. Only
-observations with media are returned. Photo URLs are in the artifact data at results[].photos[].url.
+observations with media are returned. Photo URLs are in the artifact data at results[].photos[].url and point to the
+original, full-size images.
 """
 
 LLMResponseModel = make_llm_response_model(ObservationsQueryParams)
@@ -70,6 +74,12 @@ async def find_media_records(request: str, runtime: ToolRuntime):
         matching_count = response_data.get("total_results", 0)
         record_count = len(response_data.get("results", []))
 
+        # iNaturalist returns tiny "square" photo URLs by default. Point them to the full-size image so that photos
+        # display properly in iChatBio.
+        photo_count = upsize_photo_urls(response_data)
+        if photo_count:
+            await process.log(f"Changed {photo_count} photo URLs to the {PHOTO_SIZE} size")
+
         await context.reply(
             f"The API query returned {record_count} out of {matching_count} matching observations with media in"
             f" iNaturalist using the URL {api_query_url}"
@@ -79,18 +89,18 @@ async def find_media_records(request: str, runtime: ToolRuntime):
             await process.create_artifact(
                 mimetype="application/json",
                 description=artifact_description,
-                uris=[api_query_url],
+                content=json.dumps(response_data).encode("utf-8"),
                 metadata={
                     "data_source": "iNaturalist",
                     "retrieved_record_count": record_count,
                     "total_matching_count": matching_count,
+                    "source_url": api_query_url,
                 },
             )
             await context.reply(
                 "Tips:\n"
-                "- Photo URLs are in the artifact data at results[].photos[].url.\n"
-                "- To get a different photo size, replace only the size name in the URL (for example square) with"
-                " original, large, medium, small, or thumb."
+                "- Photo URLs are in the artifact data at results[].photos[].url and point to the original,"
+                " full-size images."
             )
 
 
