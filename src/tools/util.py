@@ -104,14 +104,15 @@ def upsize_photo_urls(data, size: str = PHOTO_SIZE) -> int:
     """
     changed = 0
     if isinstance(data, dict):
-        for key, value in data.items():
-            if key == "url" and isinstance(value, str):
-                new_value = _PHOTO_URL.sub(rf"/{size}.\1\2", value)
-                if new_value != value:
-                    data[key] = new_value
-                    changed += 1
-            else:
-                changed += upsize_photo_urls(value, size)
+        value = data.get("url")
+        if isinstance(value, str):
+            new_value = _PHOTO_URL.sub(rf"/{size}.\1\2", value)
+            if new_value != value:
+                data["url"] = new_value
+                changed += 1
+        for child in data.values():
+            if isinstance(child, (dict, list)):
+                changed += upsize_photo_urls(child, size)
     elif isinstance(data, list):
         for item in data:
             changed += upsize_photo_urls(item, size)
