@@ -75,7 +75,9 @@ async def test_find_builds_url_from_schema_and_makes_artifact(context, messages,
 
     assert "photos=true" in seen[0]
     assert "taxon_name=Rattus+rattus" in seen[0]
-    assert seen[0].startswith("https://api.inaturalist.org/v1/observations?")
+    assert seen[0].startswith("https://api.inaturalist.org/v2/observations?")
+    assert "fields=" in seen[0]
+    assert "photos.url" in seen[0]
     artifact = next(m for m in messages if isinstance(m, ArtifactResponse))
     assert artifact.metadata["total_matching_count"] == 10
     assert artifact.metadata["retrieved_record_count"] == 1

@@ -1,7 +1,7 @@
 """
 This module provides pydantic schema used to craft and validate iNaturalist API queries.
 
-Only parameters documented for GET /v1/observations are included. The API silently ignores parameters it does not
+Only parameters documented for GET /v2/observations are included. The API silently ignores parameters it does not
 recognize, so an undocumented field can look valid while filtering nothing. extra="forbid" makes the LLM's output fail
 validation (and get retried) if it invents a field.
 """
@@ -15,7 +15,7 @@ License = Literal["cc-by", "cc-by-nc", "cc-by-nd", "cc-by-sa", "cc-by-nc-nd", "c
 
 class ObservationsQueryParams(BaseModel):
     """
-    Request parameters for the iNaturalist v1 observations search API (GET /v1/observations).
+    Request parameters for the iNaturalist v2 observations search API (GET /v2/observations).
     """
     model_config = ConfigDict(
         extra="forbid",

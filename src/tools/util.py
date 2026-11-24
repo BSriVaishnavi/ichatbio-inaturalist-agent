@@ -93,6 +93,13 @@ def capture_messages(context: ResponseContext):
 # 1024 px image).
 PHOTO_SIZE = "original"
 
+# Without the "fields" parameter, the v2 API returns only an observation's uuid. These are the fields the agent asks
+# for on every request, which keeps the artifact short and readable.
+OBSERVATION_FIELDS = (
+    "uri,observed_on,place_guess,location,quality_grade,species_guess,"
+    "taxon.name,taxon.preferred_common_name,user.login,photos.url,sounds.file_url"
+)
+
 _PHOTO_URL = re.compile(r"/(?:square|thumb|small|medium|large|original)\.(\w+)((?:\?.*)?)$", re.IGNORECASE)
 
 

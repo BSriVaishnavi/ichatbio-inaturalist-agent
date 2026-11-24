@@ -9,6 +9,7 @@ from entrypoints.search_inaturalist_observations import build_query_url, query_i
 from schema import ObservationsQueryParams
 from tools.context import current_context
 from tools.util import (
+    OBSERVATION_FIELDS,
     PHOTO_SIZE,
     context_tool,
     generate_search_parameters,
@@ -18,7 +19,7 @@ from tools.util import (
 )
 from util import AIGenerationException
 
-API_URL = "https://api.inaturalist.org/v1/observations"
+API_URL = "https://api.inaturalist.org/v2/observations"
 
 description = """\
 Searches for iNaturalist observations that have photos or sounds, for requests about images or recordings. Only
@@ -58,7 +59,7 @@ async def find_media_records(request: str, runtime: ToolRuntime):
         json_params = params.model_dump(exclude_none=True, by_alias=True)
         await process.log("Generated search parameters", data=json_params)
 
-        api_query_url = build_query_url(API_URL, json_params)
+        api_query_url = build_query_url(API_URL, {**json_params, "fields": OBSERVATION_FIELDS})
         await process.log(f"Sending a GET request to the iNaturalist observations API at {api_query_url}")
 
         try:

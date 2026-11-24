@@ -66,7 +66,7 @@ async def run(context: ResponseContext, request: str):
 
         await process.log("Generated search parameters:", data=params)
 
-        api_url = 'https://api.inaturalist.org/v1/observations'
+        api_url = 'https://api.inaturalist.org/v2/observations'
         api_query_url = build_query_url(api_url, params)
         await process.log(f"Sending a GET request to iNaturalist observations API at {api_query_url}")
 
