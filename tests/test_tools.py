@@ -76,13 +76,26 @@ async def test_find_builds_url_from_schema_and_makes_artifact(context, messages,
     assert "photos=true" in seen[0]
     assert "taxon_name=Rattus+rattus" in seen[0]
     assert seen[0].startswith("https://api.inaturalist.org/v2/observations?")
-    assert "fields=" in seen[0]
-    assert "photos.url" in seen[0]
+    assert "fields=all" in seen[0]
+    assert "order_by=random" in seen[0]
     artifact = next(m for m in messages if isinstance(m, ArtifactResponse))
     assert artifact.metadata["total_matching_count"] == 10
     assert artifact.metadata["retrieved_record_count"] == 1
     # the LLM-facing messages never carry artifact content
     assert any(isinstance(m, ArtifactResponse) for m in result)
+
+
+@pytest.mark.asyncio
+async def test_generated_order_by_overrides_the_random_default(context, messages, monkeypatch):
+    seen = []
+    params = ObservationsQueryParams(taxon_name="Rattus rattus", order_by="created_at", order="desc")
+    monkeypatch.setattr(find_mod, "generate_search_parameters", fake_generate(params))
+    monkeypatch.setattr(find_mod, "query_inaturalist_observations", fake_query([{"id": 1}], 10, seen))
+
+    await find_mod.find_occurrence_records.coroutine(request="newest rats", runtime=RUNTIME)
+
+    assert "order_by=created_at" in seen[0]
+    assert "order_by=random" not in seen[0]
 
 
 @pytest.mark.asyncio
@@ -143,6 +156,8 @@ async def test_media_forces_photos_true(context, messages, monkeypatch):
     await media_mod.find_media_records.coroutine(request="photos of rats", runtime=RUNTIME)
 
     assert "photos=true" in seen[0]
+    assert "fields=all" in seen[0]
+    assert "order_by=random" in seen[0]
 
 
 @pytest.mark.asyncio

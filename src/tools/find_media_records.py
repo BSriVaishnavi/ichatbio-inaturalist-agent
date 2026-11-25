@@ -9,6 +9,7 @@ from entrypoints.search_inaturalist_observations import build_query_url, query_i
 from schema import ObservationsQueryParams
 from tools.context import current_context
 from tools.util import (
+    DEFAULT_PARAMS,
     OBSERVATION_FIELDS,
     PHOTO_SIZE,
     context_tool,
@@ -59,7 +60,7 @@ async def find_media_records(request: str, runtime: ToolRuntime):
         json_params = params.model_dump(exclude_none=True, by_alias=True)
         await process.log("Generated search parameters", data=json_params)
 
-        api_query_url = build_query_url(API_URL, {**json_params, "fields": OBSERVATION_FIELDS})
+        api_query_url = build_query_url(API_URL, {**DEFAULT_PARAMS, **json_params, "fields": OBSERVATION_FIELDS})
         await process.log(f"Sending a GET request to the iNaturalist observations API at {api_query_url}")
 
         try:
